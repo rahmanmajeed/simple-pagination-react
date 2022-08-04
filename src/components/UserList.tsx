@@ -1,9 +1,29 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useReducer, useState } from "react";
+import { debounce } from "../utils/common";
 import { formatDMY } from "../utils/format";
 import Pagination from "./Pagination";
 
+const initial = {
+     users: [],
+     userBackup: [],
+     searchText: "",
+     filterby: ""
+}
+const reducer = (state:any, action:any) => {
+    switch (action.type) {
+      case 'fetchUser':
+        return {
+          ...state,
+          users: action.payload,
+          userBackup: action.payload
+        };
+      default:
+        return state;
+    }
+}
 function UserList() {
-  const [users, setUsers] = useState([]);
+  // const [users, setUsers] = useState([]);
+  const [store, dispatch]  = useReducer(reducer, initial)
   const [currentpage, setCurrentPage] = useState(1);
 
   const pageSize = 10;
@@ -11,18 +31,26 @@ function UserList() {
   const currentTableData = useMemo(() => {
     const firstPageIndex = (currentpage - 1) * pageSize;
     const lastPageIndex = firstPageIndex + pageSize;
-    return users.slice(firstPageIndex, lastPageIndex);
-  }, [currentpage]);
+    return store.users.slice(firstPageIndex, lastPageIndex);
+  }, [currentpage, store.users]);
 
-  const handleChange = (e: any) => {
-    const frs = users.filter((user: any) => user.email === e.target.value);
-    console.log(frs);
-  };
+  const handleChange = debounce((input:any) => {
+    return filterBySearch(input, store.userBackup);
+  },1500);
+
+  const filterBySearch = (value:any, userData:any) => {
+    if (value.trim().length > 0) {
+      let readyString = value.trim().toLowerCase();
+    const filteredUsers = userData.filter((user:any) =>user.username.includes(readyString));
+    console.log(filteredUsers,'filt');
+    }
+
+  }
 
   useEffect(() => {
     fetch("https://randomuser.me/api/?results=50")
       .then((res) => res.json())
-      .then((json) => setUsers(json.results))
+      .then((json) => dispatch({type:'fetchUser', payload:json.results}))
       .catch((err) => console.log(err));
   }, []);
 
@@ -33,8 +61,9 @@ function UserList() {
           type="text"
           name=""
           id=""
+          className="p-3 my-5 rounded-md w-1/6 border border-slate-300"
           placeholder="search here"
-          onChange={handleChange}
+          onChange={(e) => handleChange(e.target.value)}
         />
         <table className="table-fixed w-full border-collapse border border-slate-400">
           <thead>
@@ -73,7 +102,7 @@ function UserList() {
         </table>
       </div>
       <Pagination
-        total={users.length}
+        total={store.users.length}
         currentPage={currentpage}
         pageSize={pageSize}
         onPageChange={(pageno: number) => setCurrentPage(pageno)}
